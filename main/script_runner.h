@@ -7,5 +7,6 @@ void script_runner_init(void);
 bool script_runner_is_running(void);
 void script_runner_execute(void);
 void script_runner_abort(void);
+uint32_t script_runner_completed_at(void);
 
 #endif

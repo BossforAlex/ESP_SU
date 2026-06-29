@@ -8,22 +8,21 @@
 
 static const char *TAG = "hid_handler";
 static SemaphoreHandle_t s_ready_sem = NULL;
+static volatile bool s_mounted = false;
+static hid_event_cb_t s_event_cb = NULL;
 
 /* USB HID Keyboard Report Descriptor */
 static const uint8_t hid_keyboard_report_desc[] = {
     TUD_HID_REPORT_DESC_KEYBOARD(HID_REPORT_ID(HID_ITF_PROTOCOL_KEYBOARD))
 };
 
-/* 键盘 report 回调 */
 static void tud_hid_report_complete_cb(uint8_t instance, uint8_t const *report,
                                         uint16_t len) {
-    /* 上一份 report 发送完成，唤醒等待者 */
     (void)instance;
     (void)report;
     (void)len;
 }
 
-/* TinyUSB HID 获取 report 回调 */
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id,
                                 hid_report_type_t report_type, uint8_t *buffer,
                                 uint16_t reqlen) {
@@ -35,7 +34,6 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id,
     return 0;
 }
 
-/* TinyUSB HID 设置 report 回调 */
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id,
                             hid_report_type_t report_type, uint8_t const *buffer,
                             uint16_t bufsize) {
@@ -46,23 +44,23 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id,
     (void)bufsize;
 }
 
-/* USB 设备挂载回调 */
 void tud_mount_cb(void) {
-    ESP_LOGI(TAG, "USB device mounted");
+    ESP_LOGI(TAG, "USB mounted");
+    s_mounted = true;
     xSemaphoreGive(s_ready_sem);
+    if (s_event_cb) s_event_cb(true);
 }
 
-/* USB 设备卸载回调 */
 void tud_umount_cb(void) {
-    ESP_LOGI(TAG, "USB device unmounted");
+    ESP_LOGI(TAG, "USB unmounted");
+    s_mounted = false;
+    if (s_event_cb) s_event_cb(false);
 }
 
-/* USB 挂起回调 */
 void tud_suspend_cb(bool remote_wakeup_en) {
     (void)remote_wakeup_en;
 }
 
-/* USB 恢复回调 */
 void tud_resume_cb(void) {
 }
 
@@ -95,6 +93,14 @@ void hid_init(void) {
     ESP_LOGI(TAG, "HID keyboard initialized");
 }
 
+void hid_set_event_callback(hid_event_cb_t cb) {
+    s_event_cb = cb;
+}
+
+bool hid_is_connected(void) {
+    return s_mounted;
+}
+
 bool hid_is_ready(void) {
     if (s_ready_sem == NULL) return false;
     return xSemaphoreTake(s_ready_sem, 0) == pdTRUE;
@@ -102,7 +108,6 @@ bool hid_is_ready(void) {
 
 void hid_send_key(uint8_t modifier, uint8_t keycode) {
     if (!tud_hid_ready()) {
-        ESP_LOGW(TAG, "HID not ready, skip key");
         return;
     }
     uint8_t report[8] = {modifier, 0, keycode, 0, 0, 0, 0, 0};
@@ -117,7 +122,6 @@ void hid_release_all(void) {
     vTaskDelay(pdMS_TO_TICKS(5));
 }
 
-/* 按键字符映射表 */
 static uint8_t char_to_keycode(char c) {
     if (c >= 'a' && c <= 'z') return HID_KEY_A + (c - 'a');
     if (c >= 'A' && c <= 'Z') return HID_KEY_A + (c - 'A');
@@ -152,9 +156,7 @@ void hid_send_string(const char *text) {
     while (*text) {
         char c = *text++;
         uint8_t keycode = char_to_keycode(c);
-        if (keycode == 0) {
-            continue;
-        }
+        if (keycode == 0) continue;
         uint8_t modifier = char_need_shift(c) ? KEYBOARD_MODIFIER_LEFTSHIFT : 0;
         hid_send_key(modifier, keycode);
         hid_release_all();
