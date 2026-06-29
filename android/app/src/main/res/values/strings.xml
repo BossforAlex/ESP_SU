@@ -1,6 +1,0 @@
-<resources>
-    <string name="app_name">高德导航监听</string>
-    <string name="navigation_tab">导航监听</string>
-    <string name="bluetooth_tab">蓝牙控制</string>
-    <string name="converter_tab">数据转换</string>
-</resources>
