@@ -3,12 +3,6 @@ name: Build & Release Firmware
 on:
   push:
     branches: [main]
-    paths:
-      - 'main/**'
-      - 'CMakeLists.txt'
-      - 'partitions.csv'
-      - 'sdkconfig.defaults'
-      - '.github/workflows/build-firmware.yml'
   workflow_dispatch:
 
 permissions:
