@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: espressif/idf:release-v4.4
+    container: espressif/idf:release-v5.0
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
         run: |
           git config --global --add safe.directory /__w/ESP_SU/ESP_SU
           . $IDF_PATH/export.sh
-          idf.py set-target esp32c3
+          idf.py set-target esp32s3
           idf.py build
 
       - name: Prepare release artifacts
@@ -30,13 +30,13 @@ jobs:
           mkdir -p release
           cp build/bootloader/bootloader.bin       release/
           cp build/partition_table/partition-table.bin release/
-          cp build/esp32c3-usb-fastboot.bin        release/
-          cp build/esp32c3-usb-fastboot.elf        release/
+          cp build/esp32s3-usb-fastboot.bin        release/
+          cp build/esp32s3-usb-fastboot.elf        release/
           . $IDF_PATH/export.sh
           python3 -c "
           boot  = open('release/bootloader.bin','rb').read()
           part  = open('release/partition-table.bin','rb').read()
-          app   = open('release/esp32c3-usb-fastboot.bin','rb').read()
+          app   = open('release/esp32s3-usb-fastboot.bin','rb').read()
           out   = open('release/merged-flash.bin','wb')
           out.write(boot + b'\xFF' * (0x8000 - len(boot)))
           out.write(part + b'\xFF' * (0x10000 - 0x8000 - len(part)))
@@ -68,7 +68,7 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: "Release v${{ github.run_number }}"
           body: |
-            ## ESP32-C3 USB Fastboot Tool
+            ## ESP32-S3 USB Fastboot Tool (USB Host)
 
             - **Commit**: ${{ github.sha }}
             - **Build**: #${{ github.run_number }}
@@ -76,21 +76,21 @@ jobs:
             ### 一键刷写
 
             ```bash
-            esptool.py --chip esp32c3 --port /dev/ttyUSB0 write_flash 0x0 merged-flash.bin
+            esptool.py --chip esp32s3 --port /dev/ttyUSB0 write_flash 0x0 merged-flash.bin
             ```
 
             ### 单独刷写
 
             ```bash
-            esptool.py --chip esp32c3 --port /dev/ttyUSB0 write_flash \
+            esptool.py --chip esp32s3 --port /dev/ttyUSB0 write_flash \
               0x0      bootloader.bin \
               0x8000   partition-table.bin \
-              0x20000  esp32c3-usb-fastboot.bin
+              0x20000  esp32s3-usb-fastboot.bin
             ```
           files: |
             firmware/bootloader.bin
             firmware/partition-table.bin
-            firmware/esp32c3-usb-fastboot.bin
+            firmware/esp32s3-usb-fastboot.bin
             firmware/merged-flash.bin
           generate_release_notes: false
         env:
