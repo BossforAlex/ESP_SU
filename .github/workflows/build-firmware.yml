@@ -1,0 +1,111 @@
+name: Build & Release Firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'main/**'
+      - 'CMakeLists.txt'
+      - 'partitions.csv'
+      - 'sdkconfig'
+      - '.github/workflows/build-firmware.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:release-v5.3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build firmware
+        shell: bash
+        run: |
+          idf.py set-target esp32c3
+          idf.py build
+
+      - name: Prepare release artifacts
+        shell: bash
+        run: |
+          mkdir -p release
+          cp build/bootloader/bootloader.bin       release/
+          cp build/partition_table/partition-table.bin release/
+          cp build/esp32c3-usb-fastboot.bin        release/
+          cp build/esp32c3-usb-fastboot.elf        release/
+          # 生成合并固件（可选，方便一键刷写）
+          python3 -c "
+          import sys
+          boot  = open('release/bootloader.bin','rb').read()
+          part  = open('release/partition-table.bin','rb').read()
+          app   = open('release/esp32c3-usb-fastboot.bin','rb').read()
+          out   = open('release/merged-flash.bin','wb')
+          out.write(boot + b'\xFF' * (0x8000 - len(boot)))
+          out.write(part + b'\xFF' * (0x10000 - 0x8000 - len(part)))
+          out.write(app)
+          out.close()
+          print('merged-flash.bin created')
+          "
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: release/
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: firmware/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Release v${{ github.run_number }}"
+          body: |
+            ## ESP32-C3 USB Fastboot Tool
+
+            - **Commit**: ${{ github.sha }}
+            - **Build**: #${{ github.run_number }}
+
+            ### 刷写方法
+
+            ```bash
+            esptool.py --chip esp32c3 --port /dev/ttyUSB0 write_flash 0x0 merged-flash.bin
+            ```
+
+            ### 单独刷写
+
+            ```bash
+            esptool.py --chip esp32c3 --port /dev/ttyUSB0 write_flash \
+              0x0      bootloader.bin \
+              0x8000   partition-table.bin \
+              0x20000  esp32c3-usb-fastboot.bin
+            ```
+
+            ### 固件说明
+
+            | 文件 | 地址 | 说明 |
+            |------|------|------|
+            | bootloader.bin | 0x0 | 引导程序 |
+            | partition-table.bin | 0x8000 | 分区表 |
+            | esp32c3-usb-fastboot.bin | 0x20000 | 主程序 |
+            | merged-flash.bin | 0x0 | 合并固件（一键刷写） |
+          files: |
+            firmware/bootloader.bin
+            firmware/partition-table.bin
+            firmware/esp32c3-usb-fastboot.bin
+            firmware/merged-flash.bin
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
