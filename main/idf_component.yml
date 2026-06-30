@@ -1,3 +1,2 @@
 dependencies:
-  espressif/tinyusb:
-    version: ">=1.4.0"
+  espressif/tinyusb: "*"
