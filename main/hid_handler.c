@@ -83,10 +83,9 @@ void hid_init(void) {
     const tinyusb_config_hid_t hid_cfg = {
         .report_descriptor = hid_keyboard_report_desc,
         .report_descriptor_len = sizeof(hid_keyboard_report_desc),
-        .report_callback = tud_hid_report_complete_cb,
-        .use_out_report = false,
+        .callback = tud_hid_report_complete_cb,
         .report_id = 0,
-        .protocol_mode = HID_PROTOCOL_NONE,
+        .protocol_mode = 0,
     };
 
     ESP_ERROR_CHECK(tusb_hid_keyboard_init(&hid_cfg));
