@@ -7,7 +7,7 @@ on:
       - 'main/**'
       - 'CMakeLists.txt'
       - 'partitions.csv'
-      - 'sdkconfig'
+      - 'sdkconfig.defaults'
       - '.github/workflows/build-firmware.yml'
   workflow_dispatch:
 
@@ -25,6 +25,7 @@ jobs:
       - name: Build firmware
         shell: bash
         run: |
+          . $IDF_PATH/export.sh
           idf.py set-target esp32c3
           idf.py build
 
@@ -36,9 +37,8 @@ jobs:
           cp build/partition_table/partition-table.bin release/
           cp build/esp32c3-usb-fastboot.bin        release/
           cp build/esp32c3-usb-fastboot.elf        release/
-          # 生成合并固件（可选，方便一键刷写）
+          . $IDF_PATH/export.sh
           python3 -c "
-          import sys
           boot  = open('release/bootloader.bin','rb').read()
           part  = open('release/partition-table.bin','rb').read()
           app   = open('release/esp32c3-usb-fastboot.bin','rb').read()
@@ -78,7 +78,7 @@ jobs:
             - **Commit**: ${{ github.sha }}
             - **Build**: #${{ github.run_number }}
 
-            ### 刷写方法
+            ### 一键刷写
 
             ```bash
             esptool.py --chip esp32c3 --port /dev/ttyUSB0 write_flash 0x0 merged-flash.bin
@@ -92,15 +92,6 @@ jobs:
               0x8000   partition-table.bin \
               0x20000  esp32c3-usb-fastboot.bin
             ```
-
-            ### 固件说明
-
-            | 文件 | 地址 | 说明 |
-            |------|------|------|
-            | bootloader.bin | 0x0 | 引导程序 |
-            | partition-table.bin | 0x8000 | 分区表 |
-            | esp32c3-usb-fastboot.bin | 0x20000 | 主程序 |
-            | merged-flash.bin | 0x0 | 合并固件（一键刷写） |
           files: |
             firmware/bootloader.bin
             firmware/partition-table.bin
