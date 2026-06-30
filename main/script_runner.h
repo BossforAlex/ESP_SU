@@ -1,6 +1,7 @@
 #ifndef SCRIPT_RUNNER_H
 #define SCRIPT_RUNNER_H
 
+#include <stdint.h>
 #include <stdbool.h>
 
 void script_runner_init(void);
