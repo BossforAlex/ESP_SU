@@ -19,6 +19,7 @@ jobs:
       - name: Build firmware
         shell: bash
         run: |
+          git config --global --add safe.directory /__w/ESP_SU/ESP_SU
           . $IDF_PATH/export.sh
           idf.py set-target esp32c3
           idf.py build
